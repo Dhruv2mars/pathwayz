@@ -37,3 +37,15 @@ Pathwayz is a personalized AI career and skills advisor for students in India. I
 ## 6. Environment Variables
 - **Client-side (Vite):** All variables must be prefixed with `VITE_`. Example: `VITE_FIREBASE_API_KEY`.
 - **Server-side (Vercel):** No prefix needed. Example: `GEMINI_API_KEY`.
+
+## 7. Configuration Files
+- **PostCSS:** `postcss.config.cjs` (CommonJS format due to package.json type: module)
+- **Tailwind:** `tailwind.config.cjs` (CommonJS format due to package.json type: module)
+- **TypeScript:** `tsconfig.json` and `tsconfig.node.json`
+- **Vercel:** `vercel.json` for deployment and serverless functions configuration
+
+## 8. Development Commands
+- **Start Dev Server:** `bun run dev` (Vite dev server)
+- **Build for Production:** `bun run build`
+- **Preview Build:** `bun run preview`
+- **Vercel Dev:** `vercel dev` (for testing with serverless functions)
