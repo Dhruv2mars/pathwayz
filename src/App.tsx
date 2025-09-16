@@ -1,42 +1,39 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { initializeAuthListener } from '@/lib/auth'
 import { useUserStore } from '@/store/userStore'
+import LandingPage from '@/pages/LandingPage'
+import WelcomePage from '@/pages/WelcomePage'
 
 function App() {
   const { user, isLoading } = useUserStore()
+  const [currentPath, setCurrentPath] = useState(window.location.pathname)
 
   useEffect(() => {
     const unsubscribe = initializeAuthListener()
     return () => unsubscribe()
   }, [])
 
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname)
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-lg text-gray-600">Loading...</div>
       </div>
     )
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-4xl font-bold text-center mb-8">
-          Welcome to Pathwayz
-        </h1>
-        {user ? (
-          <div className="text-center">
-            <p className="text-lg mb-4">Hello, {user.email}!</p>
-            <p className="text-gray-600">You are logged in.</p>
-          </div>
-        ) : (
-          <div className="text-center">
-            <p className="text-lg mb-4">Please log in to continue.</p>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+  if (user) {
+    return <WelcomePage />
+  }
+
+  return <LandingPage />
 }
 
 export default App
