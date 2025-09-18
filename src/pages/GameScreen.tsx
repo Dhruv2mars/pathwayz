@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -7,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Sparkles, Brain, ArrowRight, CheckCircle } from 'lucide-react'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, collection, addDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebaseConfig'
 
 interface GameScene {
@@ -17,14 +18,22 @@ interface GameScene {
   question?: string
 }
 
+interface AIResponse {
+  narrative: string
+  questionType: 'multi-choice' | 'single-choice' | 'finale'
+  options?: string[]
+}
+
 interface ConversationEntry {
   type: 'ai' | 'user'
-  content: string
+  content: AIResponse | string  // AI responses contain full response object, user responses are selected option text
   timestamp: string
+  selectedOptions?: string[]    // For user entries, store the actual options they selected
 }
 
 export default function GameScreen() {
   const { user } = useUserStore()
+  const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(true)
   const [currentScene, setCurrentScene] = useState<GameScene | null>(null)
   const [conversationHistory, setConversationHistory] = useState<ConversationEntry[]>([])
@@ -32,6 +41,7 @@ export default function GameScreen() {
   const [selectedOptions, setSelectedOptions] = useState<string[]>([])
   const [questionCount, setQuestionCount] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isSavingResults, setIsSavingResults] = useState(false)
 
   // Initialize game on component mount
   useEffect(() => {
@@ -69,7 +79,11 @@ export default function GameScreen() {
       setCurrentScene(gameData)
       setConversationHistory([{
         type: 'ai',
-        content: gameData.narrative,
+        content: {
+          narrative: gameData.narrative,
+          questionType: gameData.questionType,
+          options: gameData.options?.map((opt: any) => typeof opt === 'string' ? opt : opt.text) || []
+        },
         timestamp: new Date().toISOString()
       }])
       setQuestionCount(1)
@@ -107,6 +121,7 @@ export default function GameScreen() {
       {
         type: 'user' as const,
         content: userResponse,
+        selectedOptions: selectedOptions.map(optionId => currentScene?.options?.[parseInt(optionId)]).filter(Boolean),
         timestamp: new Date().toISOString()
       }
     ]
@@ -134,7 +149,11 @@ export default function GameScreen() {
         ...newConversationHistory,
         {
           type: 'ai' as const,
-          content: gameData.narrative,
+          content: {
+            narrative: gameData.narrative,
+            questionType: gameData.questionType,
+            options: gameData.options?.map((opt: any) => typeof opt === 'string' ? opt : opt.text) || []
+          },
           timestamp: new Date().toISOString()
         }
       ]
@@ -169,6 +188,44 @@ export default function GameScreen() {
           ? prev.filter(id => id !== optionId)
           : [...prev, optionId]
       )
+    }
+  }
+
+  const handleViewResults = async () => {
+    setIsSavingResults(true)
+    try {
+      if (!user?.uid) {
+        throw new Error('User not authenticated')
+      }
+
+      // Count AI questions and user responses
+      const aiQuestions = conversationHistory.filter(entry => entry.type === 'ai').length
+      const userResponses = conversationHistory.filter(entry => entry.type === 'user').length
+
+      // Create transcript document
+      const transcript = {
+        userUid: user.uid,
+        completedAt: new Date().toISOString(),
+        conversationHistory,
+        metadata: {
+          totalQuestions: aiQuestions,
+          gameVersion: '1.0',
+          totalResponses: userResponses
+        }
+      }
+
+      // Save directly to Firestore using client SDK
+      const docRef = await addDoc(collection(db, 'gameTranscripts'), transcript)
+      
+      console.log('Transcript saved successfully with ID:', docRef.id)
+      alert('Your career assessment has been completed and saved successfully!')
+      
+    } catch (error) {
+      console.error('Error saving transcript:', error)
+      // Show error but still allow user to continue
+      alert('Your assessment is complete! (Note: There was an issue saving the transcript, but your results are still available)')
+    } finally {
+      setIsSavingResults(false)
     }
   }
 
@@ -408,9 +465,37 @@ export default function GameScreen() {
                       Great job! Your career pathway is being generated based on your responses.
                     </p>
                     <Button
-                      className="px-8 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
+                      onClick={handleViewResults}
+                      disabled={isSavingResults}
+                      className="px-8 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-70"
                     >
-                      View My Career Path
+                      <AnimatePresence mode="wait">
+                        {isSavingResults ? (
+                          <motion.div
+                            key="saving"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="flex items-center"
+                          >
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                              className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full mr-3"
+                            />
+                            Saving Results...
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="idle"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                          >
+                            View My Career Path
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </Button>
                   </Card>
                 </motion.div>
