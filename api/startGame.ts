@@ -93,6 +93,9 @@ async function getUserData(userUid: string): Promise<UserData | null> {
 }
 
 async function callGeminiAPI(prompt: string): Promise<GameResponse> {
+  const timestamp = new Date().toISOString()
+  console.log(`🚀 [${timestamp}] StartGame: Calling Gemini API...`)
+  
   try {
     const response = await fetch(GEMINI_API_URL + `?key=${GEMINI_API_KEY}`, {
       method: 'POST',
@@ -115,7 +118,8 @@ async function callGeminiAPI(prompt: string): Promise<GameResponse> {
     })
 
     if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`)
+      const errorText = await response.text()
+      throw new Error(`Gemini API error: ${response.status} - ${response.statusText}. Response: ${errorText}`)
     }
 
     const data = await response.json()
@@ -134,13 +138,16 @@ async function callGeminiAPI(prompt: string): Promise<GameResponse> {
       throw new Error('Invalid response structure from Gemini API')
     }
 
+    console.log(`✅ [${new Date().toISOString()}] StartGame: Gemini API call successful`)
     return gameResponse
   } catch (error) {
-    console.error('Error calling Gemini API:', error)
+    const errorTimestamp = new Date().toISOString()
+    console.error(`🔴 [${errorTimestamp}] StartGame: Gemini API FAILED:`, error)
+    console.warn(`⚠️ [${errorTimestamp}] StartGame: Using FALLBACK response - API is unavailable`)
     
-    // Fallback response for development
+    // Fallback response with clear indicator
     return {
-      narrative: "Welcome to your personalized career discovery journey! I'm your AI guide, and I'm excited to help you explore your potential and discover the careers that align with your unique strengths and interests. Let's begin with understanding what truly engages you.",
+      narrative: "⚠️ [DEMO MODE] Welcome to your personalized career discovery journey! I'm your AI guide, and I'm excited to help you explore your potential and discover the careers that align with your unique strengths and interests. Let's begin with understanding what truly engages you.",
       questionType: "multi-choice",
       question: "Which of these activities do you find most engaging and energizing?",
       options: [

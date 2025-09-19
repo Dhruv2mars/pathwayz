@@ -86,7 +86,10 @@ narrative: "The maze clears, and your adventure comes to a close. Your quest is 
 questionType: "finale"
 options: []`
 
-async function callGeminiAPI(prompt: string): Promise<GameResponse> {
+async function callGeminiAPI(prompt: string, currentTurn: number): Promise<GameResponse> {
+  const timestamp = new Date().toISOString()
+  console.log(`🚀 [${timestamp}] ContinueGame Turn ${currentTurn}: Calling Gemini API...`)
+  
   try {
     const response = await fetch(GEMINI_API_URL + `?key=${GEMINI_API_KEY}`, {
       method: 'POST',
@@ -109,7 +112,8 @@ async function callGeminiAPI(prompt: string): Promise<GameResponse> {
     })
 
     if (!response.ok) {
-      throw new Error(`Gemini API error: ${response.status}`)
+      const errorText = await response.text()
+      throw new Error(`Gemini API error: ${response.status} - ${response.statusText}. Response: ${errorText}`)
     }
 
     const data = await response.json()
@@ -128,14 +132,17 @@ async function callGeminiAPI(prompt: string): Promise<GameResponse> {
       throw new Error('Invalid response structure from Gemini API')
     }
 
+    console.log(`✅ [${new Date().toISOString()}] ContinueGame Turn ${currentTurn}: Gemini API call successful`)
     return gameResponse
   } catch (error) {
-    console.error('Error calling Gemini API:', error)
+    const errorTimestamp = new Date().toISOString()
+    console.error(`🔴 [${errorTimestamp}] ContinueGame Turn ${currentTurn}: Gemini API FAILED:`, error)
+    console.warn(`⚠️ [${errorTimestamp}] ContinueGame Turn ${currentTurn}: Using FALLBACK response - API is unavailable`)
     
-    // Fallback response for development - simulate progression
+    // Deterministic fallback responses based on turn number (no randomness)
     const fallbackResponses = [
       {
-        narrative: "Interesting! Your choices show a blend of analytical and creative thinking. Now I'd love to understand more about how you prefer to work and collaborate with others.",
+        narrative: "⚠️ [DEMO MODE] Interesting! Your choices show a blend of analytical and creative thinking. Now I'd love to understand more about how you prefer to work and collaborate with others.",
         questionType: "single-choice" as const,
         question: "When working on a project, which environment helps you perform your best?",
         options: [
@@ -146,7 +153,7 @@ async function callGeminiAPI(prompt: string): Promise<GameResponse> {
         ]
       },
       {
-        narrative: "Great insights into your work style! Based on your responses, you seem to have a strong foundation for several exciting career paths. Let me gather a bit more information about your problem-solving approach.",
+        narrative: "⚠️ [DEMO MODE] Great insights into your work style! Based on your responses, you seem to have a strong foundation for several exciting career paths. Let me gather a bit more information about your problem-solving approach.",
         questionType: "multi-choice" as const,
         question: "When facing a challenging problem, which approaches do you naturally gravitate toward?",
         options: [
@@ -157,14 +164,36 @@ async function callGeminiAPI(prompt: string): Promise<GameResponse> {
         ]
       },
       {
-        narrative: "Excellent! You've shown remarkable self-awareness throughout this assessment. Based on your responses, I can see you have a unique combination of analytical thinking, creative problem-solving, and collaborative skills. You're well-positioned for several exciting career paths in India's growing economy, particularly in technology, innovation, and emerging fields that value both technical skills and human insight.",
+        narrative: "⚠️ [DEMO MODE] Great! Let's explore more about your interests and motivations.",
+        questionType: "single-choice" as const,
+        question: "What type of activities energize you most?",
+        options: [
+          { id: "1", text: "Leading and organizing team projects" },
+          { id: "2", text: "Researching and analyzing complex information" },
+          { id: "3", text: "Creating and designing new things" },
+          { id: "4", text: "Helping and mentoring others" }
+        ]
+      },
+      {
+        narrative: "⚠️ [DEMO MODE] Excellent! You've shown remarkable self-awareness throughout this assessment. Based on your responses, I can see you have a unique combination of analytical thinking, creative problem-solving, and collaborative skills. You're well-positioned for several exciting career paths in India's growing economy, particularly in technology, innovation, and emerging fields that value both technical skills and human insight.",
         questionType: "finale" as const
       }
     ]
     
-    // Return different fallback based on conversation length
-    const conversationLength = Math.floor(Math.random() * 3)
-    return fallbackResponses[conversationLength]
+    // Use turn-based selection instead of random (prevent early game termination)
+    let fallbackIndex = 0
+    if (currentTurn >= 8) {
+      fallbackIndex = 3 // finale only after sufficient questions
+    } else if (currentTurn >= 5) {
+      fallbackIndex = 2
+    } else if (currentTurn >= 3) {
+      fallbackIndex = 1
+    } else {
+      fallbackIndex = 0
+    }
+    
+    console.log(`📋 [${errorTimestamp}] ContinueGame: Using fallback response ${fallbackIndex} for turn ${currentTurn}`)
+    return fallbackResponses[fallbackIndex]
   }
 }
 
@@ -209,7 +238,7 @@ CURRENT TURN: ${currentTurn}
 Based on the conversation history above, provide Turn ${currentTurn} exactly as specified in the EXACT QUESTIONS BY TURN section. Use the exact narrative and options provided for Turn ${currentTurn}. Respond with raw JSON only.`
 
     // Call Gemini API to get the next question or finale
-    const gameResponse = await callGeminiAPI(prompt)
+    const gameResponse = await callGeminiAPI(prompt, currentTurn)
 
     // Return the response
     res.status(200).json(gameResponse)
