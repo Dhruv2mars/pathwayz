@@ -165,9 +165,6 @@ Based on this user profile, provide the career advice in the exact JSON format s
               text: prompt
             }]
           }],
-          tools: [{
-            googleSearchRetrieval: {}
-          }],
           generationConfig: {
             temperature: 0.8,
             topK: 40,
@@ -190,11 +187,7 @@ Based on this user profile, provide the career advice in the exact JSON format s
         throw new Error('No content generated from Gemini API')
       }
 
-      // Extract grounding metadata if available
-      const groundingMetadata = data.candidates?.[0]?.groundingMetadata
-      if (groundingMetadata) {
-        console.log('Grounding sources used:', groundingMetadata.webSearchQueries)
-      }
+      // Career advice generated successfully without grounding
 
       // Parse the JSON response from Gemini
       const cleanedText = generatedText.replace(/```json\n?|\n?```/g, '').trim()
