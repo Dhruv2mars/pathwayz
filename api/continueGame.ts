@@ -52,7 +52,7 @@ questionType: "multi-choice"
 options: ["Math", "Science", "Art/Design", "History", "Languages/Literature", "Computer Science/Coding", "Business/Economics", "Sports/Physical Education", "Music/Performing Arts", "None of these"]
 
 Turn 3: Scenario 2 Initial  
-narrative: "A towering peak blocks your path, guarded by a massive stone puzzle that shifts like a living maze—echoing the landmarks of {city_state}. How do you tackle it to press on?"
+narrative: "A towering peak blocks your path, guarded by a massive stone puzzle that shifts like a living maze. How do you tackle it to press on?"
 questionType: "single-choice"
 options: ["Study the patterns closely, calculating the right moves.", "Improvise a wild invention to trick the mechanism.", "Get physical—climb and adjust parts by hand.", "Call out to fellow travelers for ideas and lead the effort."]
 
@@ -62,7 +62,7 @@ questionType: "multi-choice"
 options: ["Spotting hidden patterns", "Quick creative sparks", "Hands-on fixing", "Motivating others", "Logical planning", "Adapting on the fly"]
 
 Turn 5: Scenario 3 Initial
-narrative: "In a lively tavern filled with quest-goers, reminiscent of a spot in {city_state}, a wise elder recruits you for a side mission. Based on what you've handled before, what role do you grab?"
+narrative: "In a lively tavern filled with quest-goers, a wise elder recruits you for a side mission. Based on what you've handled before, what role do you grab?"
 questionType: "single-choice"
 options: ["Plan the map and strategy, keeping everything organized.", "Build tools or scout ahead solo.", "Rally the group, communicating plans.", "Analyze clues and risks from afar."]
 
@@ -72,7 +72,7 @@ questionType: "single-choice"
 options: ["Led a school club event or team project.", "Built a model or app for a class assignment.", "Presented ideas in a debate or group discussion.", "Researched and wrote a report on a topic.", "Organized a fundraiser or volunteer activity.", "None of these."]
 
 Turn 7: Scenario 4 Initial
-narrative: "You enter a foggy maze where glowing paths whisper promises, winding like paths in {city_state}. Which one pulls you deepest, fueling your steps forward?"
+narrative: "You enter a foggy maze where glowing paths whisper promises. Which one pulls you deepest, fueling your steps forward?"
 questionType: "single-choice"
 options: ["The trail of change: Shaping a better world for all.", "The wanderer's way: Total freedom to explore unbound.", "The seeker's shadow: Unearthing forgotten truths.", "The builder's bridge: Creating something enduring."]
 
@@ -82,7 +82,7 @@ questionType: "single-choice"
 options: ["Solo adventure.", "Team huddle.", "Remote vibes."]
 
 Turn 9: Finale
-narrative: "The maze clears, and your adventure comes to a close. Your quest is complete. Thank you for playing, {name}!"
+narrative: "The maze clears, and your adventure comes to a close. Your quest is complete. Thank you for playing!"
 questionType: "finale"
 options: []`
 
