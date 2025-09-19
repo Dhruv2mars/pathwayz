@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Sparkles, Brain, ArrowRight, CheckCircle } from 'lucide-react'
-import { doc, getDoc, collection, addDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc, collection, addDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebaseConfig'
 
 interface GameScene {
@@ -206,6 +206,7 @@ export default function GameScreen() {
       const transcript = {
         userUid: user.uid,
         completedAt: new Date().toISOString(),
+        lastUpdated: new Date().toISOString(),
         conversationHistory,
         metadata: {
           totalQuestions: aiQuestions,
@@ -214,10 +215,10 @@ export default function GameScreen() {
         }
       }
 
-      // Save directly to Firestore using client SDK
-      const docRef = await addDoc(collection(db, 'gameTranscripts'), transcript)
+      // Save directly to Firestore using client SDK - overwrites existing transcript for this user
+      await setDoc(doc(db, 'gameTranscripts', user.uid), transcript)
       
-      console.log('Transcript saved successfully with ID:', docRef.id)
+      console.log('Transcript saved successfully for user:', user.uid)
       alert('Your career assessment has been completed and saved successfully!')
       
     } catch (error) {
