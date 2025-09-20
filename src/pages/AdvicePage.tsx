@@ -5,8 +5,9 @@ import { useUserStore } from '@/store/userStore'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { SkillAnalysisModal } from '@/components/ui/skill-analysis-modal'
 import { ArrowLeft, Compass, Target, Star, TrendingUp, AlertCircle } from 'lucide-react'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebaseConfig'
 
 interface CareerPath {
@@ -20,12 +21,42 @@ interface CareerAdvice {
   createdAt?: string
 }
 
+interface SkillAnalysis {
+  brief: string
+  totalSkills: string[]
+  skillGap: string[]
+}
+
+interface UserProfile {
+  coreMotivators: string[]
+  problemSolvingStyle: string
+  preferredWorkEnvironment: string
+  keyAptitudes: string[]
+  interestsAndPassions: string[]
+  personalitySummary: string
+}
+
+interface SkillAnalysisCache {
+  [pathTitle: string]: SkillAnalysis & {
+    createdAt: string
+  }
+}
+
 export default function AdvicePage() {
   const { user } = useUserStore()
   const navigate = useNavigate()
   const [careerAdvice, setCareerAdvice] = useState<CareerAdvice | null>(null)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Skill analysis modal state
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [selectedPath, setSelectedPath] = useState<CareerPath | null>(null)
+  const [skillAnalysis, setSkillAnalysis] = useState<SkillAnalysis | null>(null)
+  const [isAnalysisLoading, setIsAnalysisLoading] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
+  const [skillAnalysisCache, setSkillAnalysisCache] = useState<SkillAnalysisCache>({})
 
   useEffect(() => {
     if (!user) {
@@ -34,6 +65,7 @@ export default function AdvicePage() {
     }
 
     fetchCareerAdvice()
+    fetchUserProfile()
   }, [user, navigate])
 
   const fetchCareerAdvice = async () => {
@@ -65,12 +97,177 @@ export default function AdvicePage() {
     }
   }
 
+  const fetchUserProfile = async () => {
+    try {
+      console.log('Fetching user profile for user:', user?.uid)
+
+      const userProfileDoc = await getDoc(doc(db, 'users', user!.uid))
+      
+      if (userProfileDoc.exists()) {
+        const data = userProfileDoc.data()
+        console.log('User profile found:', data)
+        setUserProfile({
+          coreMotivators: data.coreMotivators,
+          problemSolvingStyle: data.problemSolvingStyle,
+          preferredWorkEnvironment: data.preferredWorkEnvironment,
+          keyAptitudes: data.keyAptitudes,
+          interestsAndPassions: data.interestsAndPassions,
+          personalitySummary: data.personalitySummary
+        })
+      } else {
+        console.log('No user profile found for user')
+        setError('User profile not found. Please complete the assessment first.')
+      }
+    } catch (err) {
+      console.error('Error fetching user profile:', err)
+      setError('Failed to load user profile. Please try again.')
+    }
+  }
+
   const handleRetry = () => {
     fetchCareerAdvice()
   }
 
   const handleBackToGame = () => {
     navigate('/')
+  }
+
+  const checkSkillAnalysisCache = async (pathTitle: string): Promise<SkillAnalysis | null> => {
+    try {
+      // First check local cache
+      if (skillAnalysisCache[pathTitle]) {
+        console.log('Found skill analysis in local cache for:', pathTitle)
+        return skillAnalysisCache[pathTitle]
+      }
+
+      // Check Firestore cache
+      const skillAnalysisDoc = await getDoc(doc(db, 'skillAnalysis', user!.uid))
+      if (skillAnalysisDoc.exists()) {
+        const data = skillAnalysisDoc.data()
+        if (data[pathTitle]) {
+          console.log('Found skill analysis in Firestore cache for:', pathTitle)
+          const cachedAnalysis = data[pathTitle]
+          
+          // Update local cache
+          setSkillAnalysisCache(prev => ({
+            ...prev,
+            [pathTitle]: cachedAnalysis
+          }))
+          
+          return {
+            brief: cachedAnalysis.brief,
+            totalSkills: cachedAnalysis.totalSkills,
+            skillGap: cachedAnalysis.skillGap
+          }
+        }
+      }
+      
+      return null
+    } catch (error) {
+      console.error('Error checking skill analysis cache:', error)
+      return null
+    }
+  }
+
+  const generateSkillAnalysis = async (careerPath: CareerPath): Promise<SkillAnalysis> => {
+    try {
+      if (!userProfile) {
+        throw new Error('User profile not loaded')
+      }
+      
+      console.log('Calling skill analysis API for path:', careerPath.title)
+      
+      const response = await fetch('/api/generateSkillAnalysis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userProfile: userProfile,
+          careerPath: careerPath
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.details || 'Failed to generate skill analysis')
+      }
+
+      const skillAnalysisData = await response.json()
+      console.log('Skill analysis generated successfully:', skillAnalysisData)
+      
+      // Save to Firestore (client-side)
+      try {
+        const skillAnalysisRef = doc(db, 'skillAnalysis', user!.uid)
+        const skillAnalysisWithTimestamp = {
+          ...skillAnalysisData,
+          createdAt: new Date().toISOString()
+        }
+        
+        // Get existing document to merge data
+        const existingDoc = await getDoc(skillAnalysisRef)
+        const existingData = existingDoc.exists() ? existingDoc.data() : {}
+        
+        // Update/create document with new path analysis
+        await setDoc(skillAnalysisRef, {
+          ...existingData,
+          [careerPath.title]: skillAnalysisWithTimestamp
+        })
+        
+        console.log('Skill analysis saved to Firestore for path:', careerPath.title)
+      } catch (saveError) {
+        console.error('Error saving skill analysis to Firestore:', saveError)
+        // Don't throw - we still want to return the data even if save fails
+      }
+      
+      // Update local cache
+      setSkillAnalysisCache(prev => ({
+        ...prev,
+        [careerPath.title]: {
+          ...skillAnalysisData,
+          createdAt: new Date().toISOString()
+        }
+      }))
+      
+      return skillAnalysisData
+    } catch (error) {
+      console.error('Error generating skill analysis:', error)
+      throw error
+    }
+  }
+
+  const handlePathClick = async (path: CareerPath) => {
+    setSelectedPath(path)
+    setIsModalOpen(true)
+    setSkillAnalysis(null)
+    setAnalysisError(null)
+    setIsAnalysisLoading(true)
+
+    try {
+      // Check cache first
+      const cachedAnalysis = await checkSkillAnalysisCache(path.title)
+      
+      if (cachedAnalysis) {
+        setSkillAnalysis(cachedAnalysis)
+        setIsAnalysisLoading(false)
+      } else {
+        // Generate new analysis
+        const newAnalysis = await generateSkillAnalysis(path)
+        setSkillAnalysis(newAnalysis)
+        setIsAnalysisLoading(false)
+      }
+    } catch (error) {
+      console.error('Error handling path click:', error)
+      setAnalysisError(error instanceof Error ? error.message : 'Failed to analyze skills')
+      setIsAnalysisLoading(false)
+    }
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedPath(null)
+    setSkillAnalysis(null)
+    setAnalysisError(null)
   }
 
   if (isLoading) {
@@ -192,7 +389,10 @@ export default function AdvicePage() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 + index * 0.1 }}
                 >
-                  <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 border-l-4 border-l-blue-500">
+                  <Card 
+                    className="overflow-hidden hover:shadow-lg transition-all duration-300 border-l-4 border-l-blue-500 cursor-pointer hover:bg-slate-50"
+                    onClick={() => handlePathClick(path)}
+                  >
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -245,6 +445,16 @@ export default function AdvicePage() {
           </motion.div>
         </div>
       </div>
+      
+      {/* Skill Analysis Modal */}
+      <SkillAnalysisModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        pathTitle={selectedPath?.title || ''}
+        skillAnalysis={skillAnalysis}
+        isLoading={isAnalysisLoading}
+        error={analysisError}
+      />
     </div>
   )
 }
