@@ -190,16 +190,6 @@ bun run preview      # Preview production build
 bun install          # Install dependencies
 ```
 
-## 🐛 Known Issues
-
-- Ensure Firebase configuration is properly set up
-- Vercel functions require proper environment variables
-- Some animations may require WebGL support
-
-## 📞 Support
-
-For support and questions, please open an issue in the repository.
-
 ---
 
 **Built with ❤️ for empowering students' career journeys**
